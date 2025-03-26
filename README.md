@@ -1,4 +1,3 @@
-
 ## ♻️ **EcoElectronic** – A Flutter Application
 
 **EcoElectronic** is a Flutter-based application aimed at promoting responsible e-waste management by enabling users to track, categorize, and recycle their electronic waste efficiently.
@@ -37,8 +36,11 @@ Follow these steps to run the project locally:
 
 ## 🎥 **Demo Video**
 
-Check out a detailed demo of the application on YouTube:  
-👉 [Watch the Demo on YouTube](https://youtu.be/JuJvWge70us)
+Check out a detailed demo of the application:  
+
+[![Watch the Demo on YouTube](https://img.youtube.com/vi/JuJvWge70us/maxresdefault.jpg)](https://youtu.be/JuJvWge70us)
+
+> 📺 **Pro Tip:** Click the thumbnail above to watch the video without leaving GitHub!
 
 ---
 
