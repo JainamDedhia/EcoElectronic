@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 7, "column": 0}, "map": {"version":3,"sources":["file://D%3A/flutter%20prog/my-dashboard/src/components/services/firebaseConfig.ts"],"sourcesContent":["import { initializeApp, getApps, getApp } from \"firebase/app\";\r\nimport { getFirestore } from \"firebase/firestore\";\r\n\r\n// Firebase configuration\r\nconst firebaseConfig = {\r\n  apiKey: \"AIzaSyCbua898ndQs7i6mBeMAUXZJn6E2UsTQis\",\r\n  authDomain: \"ewaste-b5ba9.firebaseapp.com\",\r\n  projectId: \"ewaste-b5ba9\",\r\n  storageBucket: \"ewaste-b5ba9.appspot.com\",\r\n  messagingSenderId: \"934295179369\",\r\n  appId: \"1:934295179369:android:c89527f2be9ce5300c92f8\",\r\n};\r\n\r\n// Ensure Firebase isn't initialized multiple times\r\nconst app = getApps().length ? getApp() : initializeApp(firebaseConfig);\r\nconst db = getFirestore(app);\r\n\r\nexport { db };\r\n"],"names":[],"mappings":";;;AAAA;AACA;AADA;AACA;;;AAEA,yBAAyB;AACzB,MAAM,iBAAiB;IACrB,QAAQ;IACR,YAAY;IACZ,WAAW;IACX,eAAe;IACf,mBAAmB;IACnB,OAAO;AACT;AAEA,mDAAmD;AACnD,MAAM,MAAM,CAAA,GAAA,uLAAA,CAAA,UAAO,AAAD,IAAI,MAAM,GAAG,CAAA,GAAA,uLAAA,CAAA,SAAM,AAAD,MAAM,CAAA,GAAA,uLAAA,CAAA,gBAAa,AAAD,EAAE;AACxD,MAAM,KAAK,CAAA,GAAA,sKAAA,CAAA,eAAY,AAAD,EAAE"}},
+    {"offset": {"line": 32, "column": 0}, "map": {"version":3,"sources":[],"names":[],"mappings":"A"}}]
+}
