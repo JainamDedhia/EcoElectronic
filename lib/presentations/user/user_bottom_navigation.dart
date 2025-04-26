@@ -1,3 +1,4 @@
+import 'package:ewaste/pages/chatbot.dart';
 import 'package:flutter/material.dart';
 import 'package:ewaste/pages/EarnPage.dart';
 import 'package:ewaste/pages/info.dart';
@@ -23,6 +24,8 @@ class UserBottomNavigation extends StatelessWidget {
         Navigator.pushReplacement(context, _createRoute(const EarnPage()));
         break;
       case 3:
+      Navigator.pushReplacement(context, _createRoute(const ChatBotScreen()));
+      case 4:
         Navigator.pushReplacement(context, _createRoute(UserAccountPage(title: "")));
         break;
     }
@@ -49,6 +52,7 @@ class UserBottomNavigation extends StatelessWidget {
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
         BottomNavigationBarItem(icon: Icon(Icons.card_giftcard), label: 'Redeem'),
+        BottomNavigationBarItem(icon: Icon(Icons.chat),label: 'ChatBot'),
         BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ],
     );

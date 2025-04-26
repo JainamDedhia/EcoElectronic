@@ -1,6 +1,8 @@
+import 'package:ewaste/pages/eventsdetailspage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../presentations/user/user_bottom_navigation.dart';
 
 class InfoPage extends StatefulWidget {
@@ -116,75 +118,193 @@ class CategoryButton extends StatelessWidget {
 }
 
 // Events Page
+// Events Page
+
 class EventsPage extends StatelessWidget {
   const EventsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-            child: Text(
-              "Events",
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [],
-                ),
-                const SizedBox(height: 8),
-                CalendarGrid(),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Text(
-              "Upcoming Plans(2)",
-              style: TextStyle(
-                fontSize: 18,
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: const Text("Events"),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        foregroundColor: Colors.black87,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Event Calendar",
+              style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
               ),
             ),
-          ),
-          ListView(
-            shrinkWrap: true, // Important to make ListView work inside SingleChildScrollView
-            physics: const NeverScrollableScrollPhysics(), // Prevents nested scrolling conflict
-            children: const [
-              EventCard(
-                date: "Wed, Apr 28 • 5:30 PM",
-                title: "Jo Malone London’s Mother’s Day Presents",
-                location: "Radius Gallery • Santa Cruz, CA",
-                imagePath: "https://via.placeholder.com/70",
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: Offset(0, 3),
+                  )
+                ],
               ),
-              EventCard(
-                date: "Sat, May 1 • 2:00 PM",
-                title: "A Virtual Evening of Smooth Jazz",
-                location: "Lot 13 • Oakland, CA",
-                imagePath: "https://via.placeholder.com/70",
+              child: const CalendarGrid(), // Your custom calendar widget
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "Upcoming Events",
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 12),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('Events').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Error loading events'));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text('No events found'));
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: snapshot.data!.docs.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final event = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+
+                    return EventCard(
+                      date: event['date'] ?? 'No date',
+                      title: event['title'] ?? 'No title',
+                      location: event['location'] ?? 'No location',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EventDetailsPage(eventData: event),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
+
+class EventCard extends StatelessWidget {
+  final String date;
+  final String title;
+  final String location;
+  final VoidCallback? onTap;
+
+  const EventCard({
+    super.key,
+    required this.date,
+    required this.title,
+    required this.location,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      child: Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        elevation: 2,
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.grey[200],
+                  image: const DecorationImage(
+                    image: AssetImage("assets/images/download.jpg"), // Placeholder image
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      location,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          size: 16,
+                          color: Colors.blueGrey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          date,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.blueGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class CalendarGrid extends StatefulWidget {
   const CalendarGrid({super.key});
@@ -310,67 +430,67 @@ class _CalendarGridState extends State<CalendarGrid> {
 }
 
 
-class EventCard extends StatelessWidget {
-  final String date;
-  final String title;
-  final String location;
-  final String imagePath;
+// class EventCard extends StatelessWidget {
+//   final String date;
+//   final String title;
+//   final String location;
+//   final String imagePath;
 
-  const EventCard({
-    required this.date,
-    required this.title,
-    required this.location,
-    required this.imagePath,
-    super.key,
-  });
+//   const EventCard({
+//     required this.date,
+//     required this.title,
+//     required this.location,
+//     required this.imagePath,
+//     super.key,
+//   });
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      padding: const EdgeInsets.all(12.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.grey,
-            blurRadius: 4.0,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              image: DecorationImage(
-                image: NetworkImage(imagePath),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(date, style: const TextStyle(color: Colors.blueAccent)),
-                const SizedBox(height: 4),
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(location, style: const TextStyle(color: Colors.grey)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+//       padding: const EdgeInsets.all(12.0),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(10),
+//         boxShadow: const [
+//           BoxShadow(
+//             color: Colors.grey,
+//             blurRadius: 4.0,
+//             offset: Offset(0, 2),
+//           ),
+//         ],
+//       ),
+//       child: Row(
+//         children: [
+//           Container(
+//             width: 70,
+//             height: 70,
+//             decoration: BoxDecoration(
+//               borderRadius: BorderRadius.circular(10),
+//               image: DecorationImage(
+//                 image: NetworkImage(imagePath),
+//                 fit: BoxFit.cover,
+//               ),
+//             ),
+//           ),
+//           const SizedBox(width: 12),
+//           Expanded(
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Text(date, style: const TextStyle(color: Colors.blueAccent)),
+//                 const SizedBox(height: 4),
+//                 Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+//                 const SizedBox(height: 4),
+//                 Text(location, style: const TextStyle(color: Colors.grey)),
+//               ],
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
 
 // FAQ Page
 class FAQPage extends StatelessWidget {

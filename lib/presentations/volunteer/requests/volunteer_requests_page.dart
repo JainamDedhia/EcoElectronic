@@ -1,9 +1,11 @@
+import 'dart:math';
 
-import 'package:ewaste/presentations/volunteer/requests/requestmap.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ewaste/data/services/volunteer_service.dart';
+import 'package:ewaste/presentations/volunteer/requests/requestmap.dart';
+import 'package:latlong2/latlong.dart';
 
 class VolunteerRequestsPage extends StatefulWidget {
   @override
@@ -12,103 +14,106 @@ class VolunteerRequestsPage extends StatefulWidget {
 
 class _VolunteerRequestsPageState extends State<VolunteerRequestsPage> {
   final VolunteerRequestService _volunteerService = VolunteerRequestService();
+  List<Map<String, dynamic>> _requests = [];
+  bool _loading = true;
+  bool _sortByDistance = false;
+  LatLng? _volunteerLocation;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Available Pickup Requests")),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('requests')
-            .where('status', isEqualTo: 'pending')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("No pending requests available."));
-          }
-
-          var requests = snapshot.data!.docs.map((doc) {
-            return {
-              'id': doc.id,
-              'totalCredits': doc['totalCredits'],
-            };
-          }).toList();
-
-          return ListView.builder(
-            itemCount: requests.length,
-            itemBuilder: (context, index) {
-              var request = requests[index];
-              // NEW FUNCTION: Fetch user's name from requestId
-              Future<String> _fetchUsernameFromRequestId(String requestId) async {
-                try {
-                  DocumentSnapshot requestDoc = await FirebaseFirestore.instance
-                      .collection('requests')
-                      .doc(requestId)
-                      .get();
-
-                  if (requestDoc.exists) {
-                    String userId = requestDoc['userId']; // Assuming 'userId' exists in the request document
-
-                    DocumentSnapshot userDoc = await FirebaseFirestore.instance
-                        .collection('Users')
-                        .doc(userId)
-                        .get();
-
-                    if (userDoc.exists) {
-                      return userDoc['name']; // Fetch the user's name from Users collection
-                    }
-                  }
-                } catch (e) {
-                  print("Error fetching username: $e");
-                }
-                return "Unknown User"; // Default fallback
-              }
-
-              // NEW CODE: Fetch username from requestId
-              return FutureBuilder<String>(
-                future: _fetchUsernameFromRequestId(request['id']),
-                builder: (context, userSnapshot) {
-                  String username = userSnapshot.data ?? "Unknown User"; // Default if not found
-
-                  return Card(
-                    margin: const EdgeInsets.all(10),
-                    child: ListTile(
-                      title: Text("User: $username"),
-                      subtitle: Text("Credits: ${request['totalCredits']}"), // Updated UI
-                      trailing: ElevatedButton(
-                        onPressed: () => _acceptRequest(request['id']),
-                        child: const Text("Accept"),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
-    );
+  void initState() {
+    super.initState();
+    _loadRequests();
   }
+
+  Future<void> _loadRequests() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Get volunteer location
+      DocumentSnapshot volunteerSnapshot = await FirebaseFirestore.instance
+          .collection('Volunteers')
+          .doc(user.uid)
+          .get();
+
+      _volunteerLocation = LatLng(
+        volunteerSnapshot['location']['latitude'],
+        volunteerSnapshot['location']['longitude'],
+      );
+
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('requests')
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      List<Map<String, dynamic>> requests = [];
+
+      for (var doc in snapshot.docs) {
+        var data = doc.data() as Map<String, dynamic>;
+        String requestId = doc.id;
+        String userId = data['userId'];
+        double lat = data['pickupAddress']['latitude'];
+        double lng = data['pickupAddress']['longitude'];
+
+        // Get user name
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(userId)
+            .get();
+
+        String userName = userDoc.exists ? userDoc['name'] : 'Unknown';
+
+        double? distance;
+        if (_volunteerLocation != null) {
+          distance = _calculateDistance(
+            _volunteerLocation!.latitude,
+            _volunteerLocation!.longitude,
+            lat,
+            lng,
+          );
+        }
+
+        requests.add({
+          'id': requestId,
+          'userName': userName,
+          'totalCredits': data['totalCredits'],
+          'latitude': lat,
+          'longitude': lng,
+          'distance': distance,
+        });
+      }
+
+      setState(() {
+        _requests = requests;
+        _loading = false;
+      });
+    } catch (e) {
+      print("Error loading requests: $e");
+    }
+  }
+
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371; // km
+    final dLat = _deg2rad(lat2 - lat1);
+    final dLon = _deg2rad(lon2 - lon1);
+    final a =
+        (sin(dLat / 2) * sin(dLat / 2)) +
+        cos(_deg2rad(lat1)) * cos(_deg2rad(lat2)) *
+            (sin(dLon / 2) * sin(dLon / 2));
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return R * c;
+  }
+
+  double _deg2rad(double deg) => deg * (3.1415926535897932 / 180);
 
   Future<void> _acceptRequest(String requestId) async {
     User? user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Not logged in! Please sign in first.")),
-      );
-      return;
-    }
+    if (user == null) return;
 
     String volunteerId = user.uid;
-    String? volunteerName = user.displayName;
-
-    if (volunteerName == null) {
-      volunteerName = await _volunteerService.getVolunteerName(volunteerId);
-    }
+    String? volunteerName = user.displayName ??
+        await _volunteerService.getVolunteerName(volunteerId);
 
     bool success = await _volunteerService.acceptRequest(
       requestId: requestId,
@@ -120,8 +125,6 @@ class _VolunteerRequestsPageState extends State<VolunteerRequestsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Request Accepted!")),
       );
-
-      // **Navigate to RequestMapPage after accepting**
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -133,5 +136,57 @@ class _VolunteerRequestsPageState extends State<VolunteerRequestsPage> {
         SnackBar(content: Text("Failed to accept request.")),
       );
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    List<Map<String, dynamic>> displayList = [..._requests];
+    if (_sortByDistance) {
+      displayList.sort((a, b) => a['distance']!.compareTo(b['distance']!));
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Available Pickup Requests"),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.sort),
+            onPressed: () {
+              setState(() {
+                _sortByDistance = !_sortByDistance;
+              });
+            },
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : displayList.isEmpty
+              ? const Center(child: Text("No pending requests available."))
+              : ListView.builder(
+                  itemCount: displayList.length,
+                  itemBuilder: (context, index) {
+                    var request = displayList[index];
+                    return Card(
+                      margin: const EdgeInsets.all(10),
+                      child: ListTile(
+                        title: Text("User: ${request['userName']}"),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Credits: ${request['totalCredits']}"),
+                            if (_sortByDistance && request['distance'] != null)
+                              Text("Distance: ${request['distance']!.toStringAsFixed(2)} km"),
+                          ],
+                        ),
+                        trailing: ElevatedButton(
+                          onPressed: () => _acceptRequest(request['id']),
+                          child: const Text("Accept"),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+    );
   }
 }
